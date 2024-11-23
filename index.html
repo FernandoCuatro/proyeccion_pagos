@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Calculo Proyeccion Pagos</title>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+	<script>
+		function copiarTabla() {
+		  // Seleccionar la tabla completa
+		  var tabla = document.getElementById('contenido_calculo').parentElement;
+
+		  // Crear un elemento temporal para contener el HTML formateado
+		  var tempElement = document.createElement('textarea');
+		  tempElement.value = tabla.outerHTML;
+
+		  // Agregar saltos de línea entre filas para una mejor visualización en Excel
+		  tempElement.value = tempElement.value.replace(/<tr>/g, "<tr>\n");
+
+		  // Agregar el elemento al documento y seleccionarlo
+		  document.body.appendChild(tempElement);
+		  tempElement.select();
+		  document.execCommand('copy');
+		  document.body.removeChild(tempElement);   
+
+
+		  // Mensaje de confirmación
+		  // alert('La tabla se ha copiado al portapapeles. Pega en Excel.');
+		}
+	
+		$(document).ready(function() {
+		    // Función para calcular la cuota mensual
+		    function calcularCuota(p, r, n) {
+		        return (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+		    }
+
+		    // Función para calcular la tabla con base en los datos
+			function calcularTabla(monto, interes, plazo, cuota) {
+			    const tasaMensual = interes; // Convertir interés a decimal
+			    let saldoAnterior = monto; // El saldo inicial es el monto otorgado
+			    const datosTabla = [];
+
+			    // Generar los datos para cada mes
+			    for (let i = 1; i <= plazo; i++) {
+			        // Calcular el porcentaje de abono
+			        const abonoPorcentaje = saldoAnterior*tasaMensual;
+			        console.log(saldoAnterior + ' ' + tasaMensual)
+
+			        // Calcular el interés mensual
+			        const interesMensual = saldoAnterior * tasaMensual;
+
+			        // Calcular el abono a capital
+			        const abonoCapital = cuota - interesMensual;
+
+			        // Calcular el saldo actual
+			        let saldoActual = saldoAnterior - abonoCapital;
+
+			        // Evitar que el saldo se vuelva negativo en el último mes
+			        if (i === plazo && saldoActual < 0) {
+			            saldoActual = 0;
+			        }
+
+			        // Guardar los datos de esta fila
+			        datosTabla.push({
+			            cuota: cuota.toFixed(2),               // Cuota constante
+			            abonoCapital: abonoCapital.toFixed(2), // Abono a capital
+			            abonoPorcentaje: abonoPorcentaje.toFixed(2), // Abono en %
+			            saldoAnterior: saldoAnterior.toFixed(2), // Saldo anterior
+			            saldoActual: saldoActual.toFixed(2),   // Saldo actual
+			            mora: ""                               // Mora (vacío por ahora)
+			        });
+
+			        // Actualizar el saldo anterior para la siguiente iteración
+			        saldoAnterior = saldoActual;
+			    }
+
+			    // Renderizar los datos en la tabla HTML
+			    const tbody = document.getElementById("contenido_calculo");
+			    tbody.innerHTML = ""; // Limpiar contenido previo
+
+			    // Crear las filas con los datos calculados
+			    datosTabla.forEach((fila) => {
+			        const tr = document.createElement("tr");
+			        tr.innerHTML = `
+			            <td style='text-align: center;'>$${fila.cuota}</td>
+			            <td style='text-align: center;'>$${fila.abonoCapital}</td>
+			            <td style='text-align: center;'>${fila.abonoPorcentaje}</td>
+			            <td style='text-align: center;'>$${fila.saldoAnterior}</td>
+			            <td style='text-align: center;'>$${fila.saldoActual}</td>
+			            <td style='text-align: center;'>${fila.mora}</td>
+			        `;
+			        tbody.appendChild(tr);
+			    });
+			}
+
+
+
+
+		    // Función para verificar campos y calcular automáticamente
+		    function verificarYCalcular() {
+		        // Obtén los valores de los campos
+		        const monto = parseFloat($("#monto").val()); // Monto del préstamo
+		        const interes = parseFloat($("#interes").val()) / 100; // Convertir interés a decimal
+		        const plazo = parseInt($("#plazo").val()); // Plazo en meses
+
+		        // Validar que todos los campos tengan valores válidos
+		        if (!isNaN(monto) && !isNaN(interes) && !isNaN(plazo) && monto > 0 && interes > 0 && plazo > 0) {
+		            // Calcular la cuota mensual
+		            const cuota = calcularCuota(monto, interes, plazo);
+
+		            // Mostrar la cuota en el campo correspondiente
+		            $("#cuota").val(cuota.toFixed(2)); // Redondea a 2 decimales
+
+					// Generar la tabla con base en la cuota
+					calcularTabla(monto, interes, plazo, cuota);
+
+		        } else {
+		            // Limpiar el campo cuota si los valores no son válidos
+		            $("#cuota").val("");
+		        }
+		    }
+
+		    // Escucha cambios en los inputs
+			$("#monto, #interes, #plazo").on("input", function() {
+			    // Captura el valor actual del input
+			    var valor = $(this).val();
+
+			    // Elimina todo lo que no sea un número o un punto decimal
+			    var valorValido = valor.replace(/[^0-9.]/g, '');
+
+			    // Asigna el valor limpio al campo
+			    $(this).val(valorValido);
+
+			    // Llamar a la función verificarYCalcular solo si los valores son válidos
+			    verificarYCalcular();
+			});
+
+		    $('#interes').on('input', function() {
+		        var valor = $(this).val();
+
+		        // Eliminar todo lo que no sea un número
+		        valor = valor.replace(/\D/g, '');
+		        
+		        // Si el valor tiene 2 o más dígitos, coloca el punto decimal en la segunda posición desde el final
+		        if (valor.length > 2) {
+		            valor = valor.slice(0, valor.length - 2) + '.' + valor.slice(valor.length - 2);
+		        }
+		        
+		        // Actualizar el valor del input
+		        $(this).val(valor);
+		    });
+
+		});
+
+	</script>
+
+<body>
+	<div>
+		<div style="text-align: center;">
+			NOMBRE CLIENTE <input type="text" name="" style="width: 50%;">
+		</div>
+
+		<div style="width: 100%; text-align: center; display: flex; justify-content: center;">
+			<table style="margin-top: 10px;">
+				<tr>
+					<td>MONTO</td>
+					<td><input type="text" name="monto" id="monto" style="text-align: center; height: 50px; width: 170px; font-size: 1.3em;"></td>
+				</tr>
+				<tr>
+					<td>INTERÉS (%)</td>
+					<td><input type="text" name="interes" id="interes" style="text-align: center; height: 50px; width: 170px; font-size: 1.3em;"></td>
+				</tr>
+				<tr>
+					<td>PLAZO (MESES)</td>
+					<td><input type="text" name="plazo" id="plazo" style="text-align: center; height: 50px; width: 170px; font-size: 1.3em;"></td>
+				</tr>
+				<tr>
+					<td>CUOTA MES</td>
+					<td><input type="text" name="cuota" id="cuota" style="text-align: center; height: 50px; width: 170px; font-size: 1.3em;" disabled></td>
+				</tr>
+			</table>
+		</div>
+	</div>
+
+	<button onclick="copiarTabla()">Copiar Tabla</button>
+	<div style="margin-top: 15px;">
+		<table style="width: 100%;">
+			<thead>
+				<tr>
+					<th colspan="6">PROYECCION DE PAGOS</th>
+				</tr>
+				<tr>
+					<th>CUOTA</th>
+					<th>ABONO CAP</th>
+					<th>ABONO %</th>
+					<th>SALDO ANT</th>
+					<th>SALDO ACT</th>
+					<th>MORA</th>
+				</tr>
+			</thead>
+
+			<tbody id="contenido_calculo">
+			</tbody>
+
+		</table>
+	</div>
+
+</body>
+</html>
